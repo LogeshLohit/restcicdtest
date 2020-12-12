@@ -6,12 +6,15 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import freemarker.core.ParseException;
@@ -26,8 +29,11 @@ import freemarker.template.Version;
 @org.springframework.web.bind.annotation.RestController
 public class RestController {
 
-	@GetMapping(value = "health")
-	public String getSuccessMsg() {
+	@Autowired
+	AsyncService async;
+	
+	@GetMapping(value = "health/{name}")
+	public String getSuccessMsg(@PathVariable("name") String name) {
 
 //		try {
 //			generateFile();
@@ -47,8 +53,15 @@ public class RestController {
 //			// TODO Auto-generated catch block
 //			e.printStackTrace();
 //		}
-
-		return "Success";
+		System.out.println("Req for name: "+name + new Date() + " Thread:" + Thread.currentThread().getName());
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return "Hello "+ name.toUpperCase()+" !, Welcome to our Page!!";
 	}
 
 	private void generateFile() throws TemplateNotFoundException, MalformedTemplateNameException, ParseException,
@@ -115,6 +128,7 @@ public class RestController {
 
 	@GetMapping(value = "greet")
 	public String greetUser(@RequestParam("name") String name) {
+		async.callAsyncMtd();
 		return "Hello ! " + name.toUpperCase() + " ! Thank you for your visit!!";
 	}
 
