@@ -1,5 +1,5 @@
 *** DB2 RESULTS ***
-select * from DB2.one
+select * from DB2.one fetch first 10 rows
 npanxx                        iccid                         tln                           id                            
 ----------------------------- ----------------------------- ----------------------------- ----------------------------- 
 123456                                                      6676                          1                             

@@ -1,5 +1,5 @@
-*** CASSANDRA RESULTS ***
-select * from DB2.one
+*** DB2 RESULTS ***
+select * from DB2.one fetch first 10 rows
 npanxx                        iccid                         tln                           id                            
 ----------------------------- ----------------------------- ----------------------------- ----------------------------- 
 123456                                                      6676                          1                             
@@ -19,4 +19,5 @@ npanxx                        iccid                         tln                 
 123456                                                      6676                          1                             
 878932                        928374983798488               9999                          1                             
 
-*** CASSANDRA RESULTS END ***
+*** DB2 RESULTS END ***
+

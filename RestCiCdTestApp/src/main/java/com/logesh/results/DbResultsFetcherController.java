@@ -43,7 +43,8 @@ public class DbResultsFetcherController {
 				&& StringUtils.isNotBlank(cassFile.getOriginalFilename()))
 			System.out.println("Cass file Uploaded, " + cassFile.getOriginalFilename());
 
-		String fileLocation = "src/main/resources/op-files/fileToCreate.txt";
+		String fileLocation = 
+				//"src/main/resources/op-files/fileToCreate.txt";
 				dbService.getResults(db2File, cassFile);
 //		try {
 //			String text = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))

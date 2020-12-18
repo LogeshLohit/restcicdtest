@@ -1,15 +1,18 @@
 package com.logesh.results;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -42,15 +45,16 @@ public class DbResultsFetcherService {
 //					new String(Files
 //					.readAllBytes(Paths.get("D:\\My works\\Verizon Projects\\FETCH-QUERY-RESULTS\\CASS-query.txt")));
 			for (String eachQuery : inputFileContent.trim().split(";")) {
-//				System.out.println("Query:" + eachQuery);
+//				//System.out.println("Query:" + eachQuery);
 
 				if (StringUtils.startsWithIgnoreCase(eachQuery.trim(), "select")) {
-//					System.out.println("Starts with Select:" + eachQuery.trim());
+//					//System.out.println("Starts with Select:" + eachQuery.trim());
 
 					String[] queryStartsFrom = eachQuery.trim().split("(?i)FROM");
 
-					eachQuery = !checkHasWhereClause(queryStartsFrom) ? 
-							appendLimitCondition(isDb2File, isCassFile, eachQuery) : eachQuery;
+					eachQuery = !checkHasWhereClause(queryStartsFrom)
+							? appendLimitCondition(isDb2File, isCassFile, eachQuery)
+							: eachQuery;
 					String tableName = queryStartsFrom[1].split("(?i)WHERE")[0];
 					System.out.println("Table Name;" + tableName);
 
@@ -75,16 +79,17 @@ public class DbResultsFetcherService {
 	}
 
 	private String appendLimitCondition(boolean isDb2File, boolean isCassFile, String eachQuery) {
-		if(isDb2File)
+		if (isDb2File)
 			eachQuery = eachQuery.concat(" fetch first 10 rows");
-		else if(isCassFile)
+		else if (isCassFile)
 			eachQuery = eachQuery.concat(" limit 10");
 		return eachQuery;
 	}
 
 	private boolean checkHasWhereClause(String[] queryStartsFrom) {
-		System.out.println("***Has Where check:" + Arrays.toString(queryStartsFrom[1].split("(?i)WHERE")));
-		return queryStartsFrom[1].split("(?i)WHERE").length > 1 ;
+//		System.out.println("***Has Where check:" +
+		// Arrays.toString(queryStartsFrom[1].split("(?i)WHERE")));
+		return queryStartsFrom[1].split("(?i)WHERE").length > 1;
 	}
 
 	private DbResultsModel invokeDB(DbResultsModel queryModel) {
@@ -107,19 +112,115 @@ public class DbResultsFetcherService {
 		return null;
 	}
 
-	public String getResults(MultipartFile db2File, MultipartFile cassFile) {
+	//NEW MTD
+	public String getResults(String db2File, String cassFile) {
+		long start = System.currentTimeMillis();
 
 		List<DbResultsModel> db2Content = null;
 		List<DbResultsModel> cassContent = null;
 
+		CompletableFuture<List<DbResultsModel>> db2 = null;
+		CompletableFuture<List<DbResultsModel>> cass = null;
+
+		if (!ObjectUtils.isEmpty(db2File)) {
+			db2Content = readInputFile(true, false, db2File);
+//			db2 = CompletableFuture.supplyAsync(() -> {
+//				System.out.println("Thread in which the db2 executes is :" + Thread.currentThread().getName());
+//				return readInputFile(true, false, db2File);
+//			});
+		}
+		if (!ObjectUtils.isEmpty(cassFile)) {
+			cassContent = readInputFile(false, true, cassFile);
+//
+//			cass = CompletableFuture.supplyAsync(() -> {
+//				System.out.println("Thread in which the cass executes is :" + Thread.currentThread().getName());
+//				return readInputFile(false, true, cassFile);
+//			});
+		}
+
+//		db2.whenComplete((results, e) -> {
+//			System.out.println("Total Time:" + ((System.currentTimeMillis()) - start));
+//		});
+
+//		return null;
+		return writeContentToFile(db2Content, cassContent);
+	}
+
+	private List<DbResultsModel> readInputFile(boolean isDb2File, boolean isCassFile, String file) {
+		// String cassSchema = "CASS";
+//		String db2Schema = "DB2";
+		System.out.println(db2Schema + " " + cassSchema);
+		List<DbResultsModel> allQueryResults = new ArrayList<DbResultsModel>();
+		try {
+			String inputFileContent = new String(Files.readAllBytes(Paths.get(file)));
+			System.out.println("File Content:" + inputFileContent);
+//					new String(Files
+//					.readAllBytes(Paths.get("D:\\My works\\Verizon Projects\\FETCH-QUERY-RESULTS\\CASS-query.txt")));
+			for (String eachQuery : inputFileContent.trim().split(";")) {
+//				//System.out.println("Query:" + eachQuery);
+
+				if (StringUtils.startsWithIgnoreCase(eachQuery.trim(), "select")) {
+//					//System.out.println("Starts with Select:" + eachQuery.trim());
+
+					String[] queryStartsFrom = eachQuery.trim().split("(?i)FROM");
+
+					eachQuery = !checkHasWhereClause(queryStartsFrom)
+							? appendLimitCondition(isDb2File, isCassFile, eachQuery)
+							: eachQuery;
+					String tableName = queryStartsFrom[1].split("(?i)WHERE")[0];
+					System.out.println("Table Name;" + tableName);
+
+					eachQuery = tableName.contains(".")
+							? getQueryByDbSchema(isDb2File, isCassFile, eachQuery, tableName,
+									StringUtils.split(tableName, ".")[0].trim())
+							: getQueryByDbSchema(isDb2File, isCassFile, eachQuery, tableName, tableName.trim());
+				}
+				System.out.println("Final Query:" + eachQuery.trim());
+
+				DbResultsModel queryModel = new DbResultsModel(eachQuery);
+				DbResultsModel queryRsesults = null;
+				queryRsesults = invokeDB(queryModel);
+				allQueryResults.add(queryRsesults);
+			}
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return allQueryResults;
+
+	}
+
+	public String getResults(MultipartFile db2File, MultipartFile cassFile) {
+		long start = System.currentTimeMillis();
+
+		List<DbResultsModel> db2Content = null;
+		List<DbResultsModel> cassContent = null;
+
+		CompletableFuture<List<DbResultsModel>> db2 = null;
+		CompletableFuture<List<DbResultsModel>> cass = null;
+
 		if (!ObjectUtils.isEmpty(db2File) && StringUtils.isNotBlank(db2File.getOriginalFilename())) {
 			db2Content = readInputFile(true, false, db2File);
+//			db2 = CompletableFuture.supplyAsync(() -> {
+//				System.out.println("Thread in which the db2 executes is :" + Thread.currentThread().getName());
+//				return readInputFile(true, false, db2File);
+//			});
 		}
-		if (!ObjectUtils.isEmpty(cassFile) && StringUtils.isNotBlank(cassFile.getOriginalFilename())) {
-			cassContent = readInputFile(false, true, cassFile);
-		}
-		return null;
-//		return writeContentToFile(db2Content, cassContent);
+//		if (!ObjectUtils.isEmpty(cassFile) && StringUtils.isNotBlank(cassFile.getOriginalFilename())) {
+		cassContent = readInputFile(false, true, cassFile);
+//
+//			cass = CompletableFuture.supplyAsync(() -> {
+//				System.out.println("Thread in which the cass executes is :" + Thread.currentThread().getName());
+//				return readInputFile(false, true, cassFile);
+//			});
+//		}
+//		db2.whenComplete((results, e) -> {
+//			System.out.println("Total Time:" + ((System.currentTimeMillis()) - start));
+//		});
+
+//		return null;
+		return writeContentToFile(db2Content, cassContent);
 	}
 
 	private String writeContentToFile(List<DbResultsModel> db2Content, List<DbResultsModel> cassContent) {
@@ -161,6 +262,14 @@ public class DbResultsFetcherService {
 	}
 
 	public List<Map<String, Object>> getInput() {
+
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 		List<Map<String, Object>> resultSet = new ArrayList<>();
 
 		Map<String, Object> inputQuery = new HashMap<String, Object>();
@@ -231,7 +340,7 @@ public class DbResultsFetcherService {
 //		// Use try-with-resource to get auto-closeable writer instance
 //		try {
 //			Files.write(Paths.get(fileLocation), content.getBytes());
-//			System.out.println("file created");
+//			//System.out.println("file created");
 //		} catch (IOException e) {
 //			// TODO Auto-generated catch block
 //			e.printStackTrace();
