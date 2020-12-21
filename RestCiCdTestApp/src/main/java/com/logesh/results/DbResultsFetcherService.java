@@ -6,6 +6,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -16,8 +18,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,13 +38,16 @@ public class DbResultsFetcherService {
 	@Value("${dbResultsFilePath}")
 	private String dbResultsFilePath;
 
-	public List<DbResultsModel> readInputFile(boolean isDb2File, boolean isCassFile, MultipartFile file) {
+	@Value("${inputFilePath}")
+	private String inputFilePath;
+
+	public List<DbResultsModel> readInputFile(boolean isDb2File, boolean isCassFile, String file) {
 //		String cassSchema = "CASS";
 //		String db2Schema = "DB2";
 		System.out.println(db2Schema + " " + cassSchema);
-		List<DbResultsModel> allQueryResults = new ArrayList<DbResultsModel>();
+		List<DbResultsModel> allQueryModel = new ArrayList<DbResultsModel>();
 		try {
-			String inputFileContent = new String(file.getBytes());
+			String inputFileContent = new String(Files.readAllBytes(Paths.get(file)));
 			System.out.println("File Content:" + inputFileContent);
 //					new String(Files
 //					.readAllBytes(Paths.get("D:\\My works\\Verizon Projects\\FETCH-QUERY-RESULTS\\CASS-query.txt")));
@@ -65,17 +72,25 @@ public class DbResultsFetcherService {
 				}
 				System.out.println("Final Query:" + eachQuery.trim());
 
-				DbResultsModel queryModel = new DbResultsModel(eachQuery);
-				DbResultsModel queryRsesults = null;
-				queryRsesults = invokeDB(queryModel);
-				allQueryResults.add(queryRsesults);
+				DbResultsModel queryModels = new DbResultsModel(eachQuery);
+				allQueryModel.add(queryModels);
 			}
 
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return allQueryResults;
+
+		return invokeDbAndGetResults(allQueryModel);
+	}
+
+	private List<DbResultsModel> invokeDbAndGetResults(List<DbResultsModel> allQueryModel) {
+		System.out.println("InvokeDbAndGetResults Mtd:" + Thread.currentThread().getName());
+		List<CompletableFuture<DbResultsModel>> withResults = allQueryModel.stream()
+				.map(queryModel -> CompletableFuture.supplyAsync(() -> invokeDB(queryModel)))
+				.collect(Collectors.toList());
+		System.out.println("InvokeDbAndGetResults End:" + Thread.currentThread().getName());
+		return withResults.stream().map(CompletableFuture::join).collect(Collectors.toList());
 	}
 
 	private String appendLimitCondition(boolean isDb2File, boolean isCassFile, String eachQuery) {
@@ -95,7 +110,7 @@ public class DbResultsFetcherService {
 	private DbResultsModel invokeDB(DbResultsModel queryModel) {
 		// PERFROM DB CALL HERE
 		// RESULT WILL LIST<HASHMAP>
-
+		System.out.println("invokeDB Mtd:" + Thread.currentThread().getName());
 		List<Map<String, Object>> sampleDbResult = getInput();
 		String opFileContent = prepareOutputFileContent(sampleDbResult);
 		queryModel.setResults(opFileContent);
@@ -112,8 +127,8 @@ public class DbResultsFetcherService {
 		return null;
 	}
 
-	//NEW MTD
-	public String getResults(String db2File, String cassFile) {
+	// NEW MTD
+	public String getResultsNew(String db2File, String cassFile) {
 		long start = System.currentTimeMillis();
 
 		List<DbResultsModel> db2Content = null;
@@ -143,10 +158,10 @@ public class DbResultsFetcherService {
 //		});
 
 //		return null;
-		return writeContentToFile(db2Content, cassContent);
+		return writeContentToFile(db2Content, cassContent, "");
 	}
 
-	private List<DbResultsModel> readInputFile(boolean isDb2File, boolean isCassFile, String file) {
+	private List<DbResultsModel> readInputFileNew(boolean isDb2File, boolean isCassFile, String file) {
 		// String cassSchema = "CASS";
 //		String db2Schema = "DB2";
 		System.out.println(db2Schema + " " + cassSchema);
@@ -191,7 +206,8 @@ public class DbResultsFetcherService {
 
 	}
 
-	public String getResults(MultipartFile db2File, MultipartFile cassFile) {
+	@Async
+	public String getResults(String db2File, String cassFile, String opFileName) {
 		long start = System.currentTimeMillis();
 
 		List<DbResultsModel> db2Content = null;
@@ -200,33 +216,36 @@ public class DbResultsFetcherService {
 		CompletableFuture<List<DbResultsModel>> db2 = null;
 		CompletableFuture<List<DbResultsModel>> cass = null;
 
-		if (!ObjectUtils.isEmpty(db2File) && StringUtils.isNotBlank(db2File.getOriginalFilename())) {
-			db2Content = readInputFile(true, false, db2File);
+		if (StringUtils.isNotBlank(db2File)) {
+			db2Content = readInputFile(true, false, inputFilePath + "/" + db2File);
 //			db2 = CompletableFuture.supplyAsync(() -> {
 //				System.out.println("Thread in which the db2 executes is :" + Thread.currentThread().getName());
 //				return readInputFile(true, false, db2File);
 //			});
 		}
-//		if (!ObjectUtils.isEmpty(cassFile) && StringUtils.isNotBlank(cassFile.getOriginalFilename())) {
-		cassContent = readInputFile(false, true, cassFile);
+		if (StringUtils.isNotBlank(cassFile)) {
+			cassContent = readInputFile(false, true, inputFilePath + "/" + cassFile);
 //
 //			cass = CompletableFuture.supplyAsync(() -> {
 //				System.out.println("Thread in which the cass executes is :" + Thread.currentThread().getName());
 //				return readInputFile(false, true, cassFile);
 //			});
-//		}
+		}
 //		db2.whenComplete((results, e) -> {
-//			System.out.println("Total Time:" + ((System.currentTimeMillis()) - start));
+		System.out.println("Async mtd Total Time:" + ((System.currentTimeMillis()) - start));
 //		});
 
 //		return null;
-		return writeContentToFile(db2Content, cassContent);
+		return writeContentToFile(db2Content, cassContent, opFileName);
 	}
 
-	private String writeContentToFile(List<DbResultsModel> db2Content, List<DbResultsModel> cassContent) {
+	private String writeContentToFile(List<DbResultsModel> db2Content, List<DbResultsModel> cassContent,
+			String fileLocation) {
 		// Get the file reference
-		String fileLocation = dbResultsFilePath + "DbResults_" + getCurrentTimeStamp() + ".txt";
+		if (StringUtils.isBlank(fileLocation))
+			fileLocation = dbResultsFilePath + "DbResults_" + getCurrentTimeStamp() + ".txt";
 
+		System.out.println("writeContentToFile Mtd:" + Thread.currentThread().getName());
 		try {
 			new java.io.File(fileLocation);
 
@@ -263,6 +282,7 @@ public class DbResultsFetcherService {
 
 	public List<Map<String, Object>> getInput() {
 
+		System.out.println("getInput Mtd:" + Thread.currentThread().getName());
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
@@ -353,5 +373,32 @@ public class DbResultsFetcherService {
 		SimpleDateFormat objSDF = new SimpleDateFormat(strDateFormat);
 		return objSDF.format(objDate);
 
+	}
+
+	public void moveFilesToInputDir(MultipartFile db2File, MultipartFile cassFile) {
+		// TODO Auto-generated method stub
+
+		try {
+			if (!ObjectUtils.isEmpty(db2File) && StringUtils.isNotBlank(db2File.getOriginalFilename())) {
+				Files.copy(db2File.getInputStream(), Paths.get(inputFilePath + "/" + db2File.getOriginalFilename()),
+						StandardCopyOption.REPLACE_EXISTING);
+				System.out.println("DB2 Input file moved to :" + inputFilePath + "/" + db2File.getOriginalFilename());
+			}
+			if (!ObjectUtils.isEmpty(cassFile) && StringUtils.isNotBlank(cassFile.getOriginalFilename())) {
+				Files.copy(cassFile.getInputStream(), Paths.get(inputFilePath + "/" + cassFile.getOriginalFilename()),
+						StandardCopyOption.REPLACE_EXISTING);
+				System.out.println(
+						"cassFile Input file moved to :" + inputFilePath + "/" + cassFile.getOriginalFilename());
+			}
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	public String generateOutputFileName() {
+		return StringUtils.join(dbResultsFilePath, "DbResults_", getCurrentTimeStamp(),".txt");
 	}
 }

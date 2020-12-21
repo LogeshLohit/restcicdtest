@@ -63,14 +63,14 @@ public class ReadFileService {
 			}
 
 			for (String db2FileName : db2Files) {
-				String currentOutputFilName = svc.getResults(db2FileName, null);// SERVICE IMPL CALL
+				String currentOutputFilName = svc.getResultsNew(db2FileName, null);// SERVICE IMPL CALL
 				resultResponse += moveFileToOutputDir(currentOutputFilName, db2FileName, counter);
 				moveInputFilesToArchive(db2FileName,
 						inputFilesArchive + db2FileName.substring(db2FileName.lastIndexOf("/") + 1));
 			}
 
 			for (String cassFileName : cassFiles) {
-				String currentOutputFilName = svc.getResults(null, cassFileName);
+				String currentOutputFilName = svc.getResultsNew(null, cassFileName);
 				;// SERVICE IMPL CALL
 
 				resultResponse += moveFileToOutputDir(currentOutputFilName, cassFileName, counter);

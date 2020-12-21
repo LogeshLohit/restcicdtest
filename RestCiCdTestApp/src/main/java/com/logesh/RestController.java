@@ -5,12 +5,17 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +36,7 @@ public class RestController {
 
 	@Autowired
 	AsyncService async;
-	
+
 	@GetMapping(value = "health/{name}")
 	public String getSuccessMsg(@PathVariable("name") String name) {
 
@@ -53,15 +58,15 @@ public class RestController {
 //			// TODO Auto-generated catch block
 //			e.printStackTrace();
 //		}
-		System.out.println("Req for name: "+name + new Date() + " Thread:" + Thread.currentThread().getName());
+		System.out.println("Req for name: " + name + new Date() + " Thread:" + Thread.currentThread().getName());
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		return "Hello "+ name.toUpperCase()+" !, Welcome to our Page!!";
+
+		return "Hello " + name.toUpperCase() + " !, Welcome to our Page!!";
 	}
 
 	private void generateFile() throws TemplateNotFoundException, MalformedTemplateNameException, ParseException,
@@ -102,8 +107,6 @@ public class RestController {
 		cars.add(c3);
 
 		input.put("cars", cars);
-		
-		
 
 		// 2.2. Get the template
 
@@ -132,5 +135,9 @@ public class RestController {
 		return "Hello ! " + name.toUpperCase() + " ! Thank you for your visit!!";
 	}
 
-	
+	@GetMapping(value = "list")
+	public Stream<Path> listFiles() throws IOException {
+//		FileVisitOption FileVisitOption.FOLLOW_LINKS;
+		return Files.walk(Paths.get("D:\\My works\\File-Walking"), FileVisitOption.FOLLOW_LINKS);
+	}
 }
