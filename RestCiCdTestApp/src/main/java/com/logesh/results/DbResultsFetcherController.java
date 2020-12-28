@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,7 +20,7 @@ public class DbResultsFetcherController {
 	@Autowired
 	private DbResultsFetcherService dbService;
 
-	@PostMapping("/upload")
+	@GetMapping("/upload")
 	public String readInputFileAndGetResults(@RequestParam(name = "db2File", required = false) MultipartFile db2File,
 			@RequestParam(name = "cassFile", required = false) MultipartFile cassFile) {
 //		System.out.println("Uploaded file at :" + file.getOriginalFilename());
@@ -34,6 +35,7 @@ public class DbResultsFetcherController {
 //		String fileLocation =
 		// "src/main/resources/op-files/fileToCreate.txt";
 		dbService.moveFilesToInputDir(db2File, cassFile);
+		System.out.println("ctnr main Mtd:" + Thread.currentThread().getName());
 		dbService.getResults(
 				!ObjectUtils.isEmpty(db2File) && StringUtils.isNotBlank(db2File.getOriginalFilename())
 						? db2File.getOriginalFilename()

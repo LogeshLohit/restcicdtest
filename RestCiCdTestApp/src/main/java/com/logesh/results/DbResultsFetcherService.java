@@ -44,11 +44,12 @@ public class DbResultsFetcherService {
 	public List<DbResultsModel> readInputFile(boolean isDb2File, boolean isCassFile, String file) {
 //		String cassSchema = "CASS";
 //		String db2Schema = "DB2";
-		System.out.println(db2Schema + " " + cassSchema);
+//		System.out.println(db2Schema + " " + cassSchema);
+		System.out.println("readInputFile Mtd:" + Thread.currentThread().getName());
 		List<DbResultsModel> allQueryModel = new ArrayList<DbResultsModel>();
 		try {
 			String inputFileContent = new String(Files.readAllBytes(Paths.get(file)));
-			System.out.println("File Content:" + inputFileContent);
+//			System.out.println("File Content:" + inputFileContent);
 //					new String(Files
 //					.readAllBytes(Paths.get("D:\\My works\\Verizon Projects\\FETCH-QUERY-RESULTS\\CASS-query.txt")));
 			for (String eachQuery : inputFileContent.trim().split(";")) {
